@@ -16,8 +16,8 @@ from shared_memory_array import SharedMemoryArray
 class TestNameHandling:
     def test_two_allocations_have_distinct_names(self):
         with SharedMemoryManager() as manager:
-            sa1 = SharedMemoryArray.allocate(manager, shape=(10,), dtype="uint8")
-            sa2 = SharedMemoryArray.allocate(manager, shape=(10,), dtype="uint8")
+            sa1 = SharedMemoryArray.allocate(manager, shape=(10,), dtype=np.uint8)
+            sa2 = SharedMemoryArray.allocate(manager, shape=(10,), dtype=np.uint8)
             assert sa1.shm.name != sa2.shm.name
 
 
@@ -25,24 +25,24 @@ class TestNameHandling:
         # Use a name that is overwhelmingly unlikely to exist
         name = f"shmanager-test-{uuid.uuid4().hex}"
         with pytest.raises(FileNotFoundError):
-            SharedMemoryArray.attach(name=name, shape=(1,), dtype="uint8")
+            SharedMemoryArray.attach(name=name, shape=(1,), dtype=np.uint8)
 
 
 class TestOwnershipHandling:
     def test_owner_false_close_does_not_unlink(self):
         with SharedMemoryManager() as manager:
-            owner = SharedMemoryArray.allocate(manager, shape=(10,), dtype="int64")
+            owner = SharedMemoryArray.allocate(manager, shape=(10,), dtype=np.int64)
             name = owner.shm.name
 
             # Attach from a "different process" perspective
-            client = SharedMemoryArray.attach(name=name, shape=(10,), dtype="int64")
+            client = SharedMemoryArray.attach(name=name, shape=(10,), dtype=np.int64)
             assert client.owner is False
 
             # Closing non-owner must not unlink the shared memory name
             client.close()
 
             # Should still be attachable (name still exists)
-            client2 = SharedMemoryArray.attach(name=name, shape=(10,), dtype="int64")
+            client2 = SharedMemoryArray.attach(name=name, shape=(10,), dtype=np.int64)
             client2.close()
 
             # Owner can still read/write
@@ -53,7 +53,7 @@ class TestOwnershipHandling:
 
     def test_owner_close_unlinks_and_future_attach_fails(self):
         with SharedMemoryManager() as manager:
-            owner = SharedMemoryArray.allocate(manager, shape=(10,), dtype="float64")
+            owner = SharedMemoryArray.allocate(manager, shape=(10,), dtype=np.float64)
             name = owner.shm.name
 
             # close() for owner unlinks in your implementation
@@ -61,12 +61,12 @@ class TestOwnershipHandling:
 
             # After unlink, attaching by name should fail
             with pytest.raises(FileNotFoundError):
-                SharedMemoryArray.attach(name=name, shape=(10,), dtype="float64")
+                SharedMemoryArray.attach(name=name, shape=(10,), dtype=np.float64)
 
 class TestCloseUnlink:
     def test_unlink_is_idempotent(self):
         with SharedMemoryManager() as manager:
-            sa = SharedMemoryArray.allocate(manager, shape=(4,), dtype="uint8")
+            sa = SharedMemoryArray.allocate(manager, shape=(4,), dtype=np.uint8)
             # Should not raise even if called multiple times
             sa.unlink()
             sa.unlink()
@@ -76,12 +76,12 @@ class TestCloseUnlink:
 class TestAttach:
     def test_attach_wrong_shape_raises_buffer_too_small(self):
         with SharedMemoryManager() as manager:
-            owner = SharedMemoryArray.allocate(manager, shape=(10,), dtype="float64")
+            owner = SharedMemoryArray.allocate(manager, shape=(10,), dtype=np.float64)
             name = owner.shm.name
 
             # Requesting a larger view than allocated should be rejected by attach()
             with pytest.raises(ValueError, match="buffer too small"):
-                SharedMemoryArray.attach(name=name, shape=(11,), dtype="float64")
+                SharedMemoryArray.attach(name=name, shape=(11,), dtype=np.float64)
 
             owner.close()
 

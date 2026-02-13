@@ -385,7 +385,7 @@ class ManagedSharedMemoryArray:
     It delegates all attribute access to the underlying SharedArray.
 
     Example:
-        with SharedArray.allocate(manager, (100,), 'float64').managed() as sa:
+        with SharedArray.allocate(manager, (100,), np.float64).managed() as sa:
             arr = sa.as_array()
             arr.fill(42.0)
             # Automatically closed on exit
