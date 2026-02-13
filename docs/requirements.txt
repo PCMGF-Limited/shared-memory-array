@@ -1,0 +1,6 @@
+numpy>=1.20.0
+intersphinx-registry
+myst-parser
+numpydoc
+pydata-sphinx-theme
+flit_scm
