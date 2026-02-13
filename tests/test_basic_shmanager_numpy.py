@@ -124,13 +124,15 @@ class TestCalculateBufferSize:
 class TestValidateBufferSize:
     """Tests for _validate_buffer_size() method."""
 
-    def test_exact_size_passes(self):
-        """Test that exact buffer size passes validation."""
+    def test_sufficient_size_passes(self):
+        """Test that allocated buffer is at least the requested size. Robust to pagination."""
         with SharedMemoryManager() as manager:
-            shm = manager.SharedMemory(800)  # 100 * 8 bytes
+            requested = 800
+            shm = manager.SharedMemory(requested)
+            assert shm.size >= requested
+
             shape = (100,)
-            dtype = np.dtype(np.float64)
-            # Should not raise
+            dtype = np.dtype('float64')
             SharedMemoryArray._validate_buffer_size(shm, shape, dtype)
 
     def test_larger_size_passes(self):
@@ -143,11 +145,16 @@ class TestValidateBufferSize:
             SharedMemoryArray._validate_buffer_size(shm, shape, dtype)
 
     def test_smaller_size_raises(self):
-        """Test that smaller buffer size raises ValueError."""
+        """Test that undersized buffer raises ValueError."""
         with SharedMemoryManager() as manager:
-            shm = manager.SharedMemory(10000)  # this is likely going to be the page size (e.g. 16kb)
-            shape = (10000,)
-            dtype = np.float64  # Needs 800 bytes
+            # Allocate small buffer
+            shm = manager.SharedMemory(100)  # Might round up to 4096
+            actual_size = shm.size
+
+            # Now request a shape/dtype that needs MORE than actual_size
+            required_bytes = actual_size + 1000
+            shape = (required_bytes // 8, )
+            dtype = np.float64
 
             with pytest.raises(ValueError, match="buffer too small"):
                 SharedMemoryArray._validate_buffer_size(shm, shape, dtype)
