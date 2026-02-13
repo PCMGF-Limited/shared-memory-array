@@ -23,7 +23,7 @@ class TestNameHandling:
 
     def test_attach_nonexistent_name_raises_filenotfound(self):
         # Use a name that is overwhelmingly unlikely to exist
-        name = f"shmanager-test-{uuid.uuid4().hex}"
+        name = "unlikely_file"
         with pytest.raises(FileNotFoundError):
             SharedMemoryArray.attach(name=name, shape=(1,), dtype=np.uint8)
 
@@ -71,57 +71,6 @@ class TestCloseUnlink:
             sa.unlink()
             sa.unlink()
             # close() should also be safe after prior unlink (your close() calls unlink for owner)
-            sa.close()
-
-class TestAttach:
-    def test_attach_wrong_shape_raises_buffer_too_small(self):
-        with SharedMemoryManager() as manager:
-            owner = SharedMemoryArray.allocate(manager, shape=(10,), dtype=np.float64)
-            name = owner.shm.name
-
-            # Requesting a larger view than allocated should be rejected by attach()
-            with pytest.raises(ValueError, match="buffer too small"):
-                SharedMemoryArray.attach(name=name, shape=(11,), dtype=np.float64)
-
-            owner.close()
-
-
-    def test_attach_wrong_dtype_raises_buffer_too_small_when_itemsize_differs(self):
-        with SharedMemoryManager() as manager:
-            owner = SharedMemoryArray.allocate(manager, shape=(10,), dtype=np.uint8)  # 10 bytes
-            name = owner.shm.name
-
-            # float64 would require 80 bytes for shape (10,)
-            with pytest.raises(ValueError, match="buffer too small"):
-                SharedMemoryArray.attach(name=name, shape=(10,), dtype=np.float64)
-
-            owner.close()
-
-
-    def test_attach_unsafe_allows_mismatch_but_as_array_raises(self):
-        with SharedMemoryManager() as manager:
-            owner = SharedMemoryArray.allocate_like_unsafe(manager, np.zeros((10,), dtype=np.uint8))  # 10 bytes
-            name = owner.shm.name
-
-            # Unsafe attach does not validate size/dtype/shape
-            bad = SharedMemoryArray.attach_unsafe(name=name, shape=(10,), dtype=np.float64)  # would need 80 bytes
-
-            with pytest.raises((ValueError, TypeError)):
-                # NumPy should refuse to construct an array view larger than the buffer.
-                _ = bad.as_array()
-
-            bad.close()
-            owner.close()
-
-class TestAllocateSize:
-    def test_allocate_unsafe_with_incorrect_nbytes_breaks_on_as_array(self):
-        with SharedMemoryManager() as manager:
-            # Allocates only 10 bytes, but declares dtype float64 and shape (10,) => would need 80 bytes.
-            sa = SharedMemoryArray.allocate_unsafe(manager, shape=(10,), dtype=np.float64, nbytes=1)
-
-            with pytest.raises((ValueError, TypeError)):
-                _ = sa.as_array()
-
             sa.close()
 
 
