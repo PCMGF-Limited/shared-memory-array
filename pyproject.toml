@@ -55,7 +55,7 @@ dependencies = [
 exclude = [".gitignore"]
 
 [tool.setuptools_scm]
-write_to = "locat/_version.py"
+write_to = "shared_memory_array/_version.py"
 
 [project.optional-dependencies]
 dev = ["pytest", "flit_core", "flit_scm"]
