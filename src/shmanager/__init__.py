@@ -1,0 +1,1 @@
+from .shmanager_numpy import SharedArray
