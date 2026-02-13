@@ -1,10 +1,10 @@
 from multiprocessing.managers import SharedMemoryManager
 
-from shmanager import SharedArray
+from shared_memory_array import SharedMemoryArray
 
 
 with SharedMemoryManager() as manager:
-    sa = SharedArray.allocate(manager, (100,), 'float64')
+    sa = SharedMemoryArray.allocate(manager, (100,), 'float64')
     shm, shape, dtype, owner = sa
 
     print('shape: ', shape)

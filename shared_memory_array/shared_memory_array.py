@@ -8,7 +8,7 @@ from numpy._typing import DTypeLike, _ShapeLike  # noqa
 from typing import NamedTuple
 
 
-class SharedArray(NamedTuple):
+class SharedMemoryArray(NamedTuple):
     """
     A pointer to a numpy.ndarray in shared memory
     For details, see https://docs.python.org/3/library/multiprocessing.shared_memory.html
@@ -91,19 +91,19 @@ class SharedArray(NamedTuple):
             # Idempotent cleanup: already unlinked elsewhere.
             pass
 
-    def managed(self) -> "ManagedSharedArray":
+    def managed(self) -> "ManagedSharedMemoryArray":
         """
         Return a context manager wrapper for automatic cleanup.
 
         Returns:
-            ManagedSharedArray: Context manager wrapper
+            ManagedSharedMemoryArray: Context manager wrapper
 
         Example:
             with sa.managed() as managed_sa:
                 arr = managed_sa.as_array()
                 # Automatically closed on exit
         """
-        return ManagedSharedArray(self)
+        return ManagedSharedMemoryArray(self)
 
 
     @staticmethod
@@ -181,8 +181,8 @@ class SharedArray(NamedTuple):
         Returns:
             int: Required buffer size in bytes
         """
-        n_elements = int(np.prod(shape))
-        itemsize = dtype.itemsize
+        n_elements = np.prod(shape)
+        itemsize = np.empty(1, dtype=dtype).nbytes
         return n_elements * itemsize
 
     @staticmethod
@@ -198,7 +198,7 @@ class SharedArray(NamedTuple):
         Raises:
             ValueError: If buffer size doesn't match requirements
         """
-        required_size = SharedArray._calculate_buffer_size(shape, dtype)
+        required_size = SharedMemoryArray._calculate_buffer_size(shape, dtype)
         if shm.size < required_size:
             raise ValueError(
                 f"Shared memory buffer too small: need {required_size} bytes "
@@ -215,14 +215,14 @@ class SharedArray(NamedTuple):
             array: Template array
 
         Returns:
-            SharedArray: New shared array with same shape and dtype
+            SharedMemoryArray: New shared array with same shape and dtype
 
         Raises:
             ValueError: If allocation fails or array properties are invalid
         """
-        shape = SharedArray._validate_shape(array.shape)
-        dtype = SharedArray._validate_dtype(array.dtype)
-        required_size = SharedArray._calculate_buffer_size(shape, dtype)
+        shape = SharedMemoryArray._validate_shape(array.shape)
+        dtype = SharedMemoryArray._validate_dtype(array.dtype)
+        required_size = SharedMemoryArray._calculate_buffer_size(shape, dtype)
 
         # Shared memory doesn't support 0-byte allocations
         # Allocate minimum of 1 byte for zero-size arrays
@@ -239,12 +239,12 @@ class SharedArray(NamedTuple):
         # Validate allocation succeeded with correct size
         # For zero-size arrays, we allocated 1 byte
         if required_size > 0:
-            SharedArray._validate_buffer_size(shm, shape, dtype)
+            SharedMemoryArray._validate_buffer_size(shm, shape, dtype)
 
-        return SharedArray(shm=shm, shape=shape, dtype=dtype, owner=True)
+        return SharedMemoryArray(shm=shm, shape=shape, dtype=dtype, owner=True)
 
     @staticmethod
-    def allocate(manager: SharedMemoryManager, shape: _ShapeLike, dtype: DTypeLike) -> "SharedArray":
+    def allocate(manager: SharedMemoryManager, shape: _ShapeLike, dtype: DTypeLike) -> "SharedMemoryArray":
         """
         Allocate shared memory for a new array.
 
@@ -254,15 +254,15 @@ class SharedArray(NamedTuple):
             dtype: Array data type
 
         Returns:
-            SharedArray: New shared array
+            SharedMemoryArray: New shared array
 
         Raises:
             ValueError: If allocation fails or parameters are invalid
             TypeError: If shape or dtype are invalid types
         """
-        shape = SharedArray._validate_shape(shape)
-        dtype = SharedArray._validate_dtype(dtype)
-        required_size = SharedArray._calculate_buffer_size(shape, dtype)
+        shape = SharedMemoryArray._validate_shape(shape)
+        dtype = SharedMemoryArray._validate_dtype(dtype)
+        required_size = SharedMemoryArray._calculate_buffer_size(shape, dtype)
 
         # Shared memory doesn't support 0-byte allocations
         # Allocate minimum of 1 byte for zero-size arrays
@@ -279,9 +279,9 @@ class SharedArray(NamedTuple):
         # Validate allocation succeeded with correct size
         # For zero-size arrays, we allocated 1 byte so we skip
         if required_size > 0:
-            SharedArray._validate_buffer_size(shm, shape, dtype)
+            SharedMemoryArray._validate_buffer_size(shm, shape, dtype)
 
-        return SharedArray(shm=shm, shape=shape, dtype=dtype, owner=True)
+        return SharedMemoryArray(shm=shm, shape=shape, dtype=dtype, owner=True)
 
     @staticmethod
     def copy(manager: SharedMemoryManager, array: np.ndarray):
@@ -293,12 +293,12 @@ class SharedArray(NamedTuple):
             array: Source array to copy
 
         Returns:
-            SharedArray: New shared array containing copy of data
+            SharedMemoryArray: New shared array containing copy of data
 
         Raises:
             ValueError: If allocation or copy fails
         """
-        sa = SharedArray.allocate_like(manager, array)
+        sa = SharedMemoryArray.allocate_like(manager, array)
 
         # No need to copy data for zero-size arrays
         if array.size == 0:
@@ -322,7 +322,7 @@ class SharedArray(NamedTuple):
         return sa
 
     @staticmethod
-    def attach(name, shape, dtype) -> "SharedArray":
+    def attach(name, shape, dtype) -> "SharedMemoryArray":
         """
         Attach to existing shared memory by name.
 
@@ -332,27 +332,27 @@ class SharedArray(NamedTuple):
             dtype: Array data type
 
         Returns:
-            SharedArray: SharedArray attached to existing memory
+            SharedMemoryArray: SharedArray attached to existing memory
 
         Raises:
             ValueError: If buffer size doesn't match requirements
         """
-        shape = SharedArray._validate_shape(shape)
-        dtype = SharedArray._validate_dtype(dtype)
+        shape = SharedMemoryArray._validate_shape(shape)
+        dtype = SharedMemoryArray._validate_dtype(dtype)
         shm = SharedMemory(name=name)
 
         # Only validate buffer size for non-zero arrays
-        required_size = SharedArray._calculate_buffer_size(shape, dtype)
+        required_size = SharedMemoryArray._calculate_buffer_size(shape, dtype)
         if required_size > 0:
-            SharedArray._validate_buffer_size(shm, shape, dtype)
+            SharedMemoryArray._validate_buffer_size(shm, shape, dtype)
 
-        return SharedArray(shm=shm, shape=shape, dtype=dtype, owner=False)
+        return SharedMemoryArray(shm=shm, shape=shape, dtype=dtype, owner=False)
 
     @staticmethod
     def allocate_like_unsafe(manager: SharedMemoryManager, array: np.ndarray):
         """Allocate without validation (unsafe, for performance)."""
         shm = manager.SharedMemory(array.nbytes)
-        return SharedArray(shm=shm, shape=array.shape, dtype=array.dtype, owner=True)
+        return SharedMemoryArray(shm=shm, shape=array.shape, dtype=array.dtype, owner=True)
 
     @staticmethod
     def allocate_unsafe(manager: SharedMemoryManager, shape: _ShapeLike, dtype: DTypeLike, nbytes=None):
@@ -360,12 +360,12 @@ class SharedArray(NamedTuple):
         nbytes = nbytes or np.zeros(1, dtype=dtype).nbytes
         # nbytes = nbytes or np.dtype(dtype).itemsize
         shm = manager.SharedMemory(np.prod(shape) * nbytes)
-        return SharedArray(shm=shm, shape=shape, dtype=dtype, owner=True)
+        return SharedMemoryArray(shm=shm, shape=shape, dtype=dtype, owner=True)
 
     @staticmethod
     def copy_unsafe(manager: SharedMemoryManager, array: np.ndarray):
         """Copy without validation (unsafe, for performance)."""
-        sa = SharedArray.allocate_like_unsafe(manager, array)
+        sa = SharedMemoryArray.allocate_like_unsafe(manager, array)
         a = sa.as_array()
         a[:] = array[:]
         return sa
@@ -374,10 +374,10 @@ class SharedArray(NamedTuple):
     def attach_unsafe(name, shape, dtype):
         """Attach without validation (unsafe, for performance)."""
         shm = SharedMemory(name=name)
-        return SharedArray(shm=shm, shape=shape, dtype=dtype, owner=False)
+        return SharedMemoryArray(shm=shm, shape=shape, dtype=dtype, owner=False)
 
 
-class ManagedSharedArray:
+class ManagedSharedMemoryArray:
     """
     Context manager wrapper for SharedArray that provides automatic cleanup.
 
@@ -390,25 +390,25 @@ class ManagedSharedArray:
             arr.fill(42.0)
             # Automatically closed on exit
     """
+    _shared_array: SharedMemoryArray = None
+    _closed:bool = False
 
-    __slots__ = ('_shared_array', '_closed')
-
-    def __init__(self, shared_array: SharedArray):
+    def __init__(self, shared_array: SharedMemoryArray):
         """
         Initialize the managed wrapper.
 
         Args:
             shared_array: SharedArray instance to manage
         """
-        object.__setattr__(self, '_shared_array', shared_array)
-        object.__setattr__(self, '_closed', False)
+        self._shared_array = shared_array
+        self._closed = False
 
-    def __enter__(self) -> SharedArray:
+    def __enter__(self) -> SharedMemoryArray:
         """
         Context manager entry.
 
         Returns:
-            SharedArray: The wrapped SharedArray instance
+            SharedMemoryArray: The wrapped SharedArray instance
         """
         if self._closed:
             raise ValueError("Cannot enter context: ManagedSharedArray is already closed")
@@ -418,13 +418,9 @@ class ManagedSharedArray:
         """Context manager exit - automatically closes the shared memory."""
         if not self._closed:
             self._shared_array.close()
-            object.__setattr__(self, '_closed', True)
+            self._closed = True
         return False  # Don't suppress exceptions
 
     def __getattr__(self, name):
         """Delegate attribute access to the wrapped SharedArray."""
         return getattr(self._shared_array, name)
-
-    def __repr__(self):
-        """String representation."""
-        return f"ManagedSharedArray({self._shared_array!r})"

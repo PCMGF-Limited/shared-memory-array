@@ -1,9 +1,9 @@
 from multiprocessing.managers import SharedMemoryManager
 
-from shmanager import SharedArray
+from shared_memory_array import SharedMemoryArray
 
 with SharedMemoryManager() as manager:
-    with SharedArray.allocate(manager, (100,), 'float64').managed() as sa:
+    with SharedMemoryArray.allocate(manager, (100,), 'float64').managed() as sa:
 
         shm, shape, dtype, owner = sa
         print('shape: ', shape)

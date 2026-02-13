@@ -3,7 +3,7 @@ from multiprocessing import Pool
 import time
 from tqdm import tqdm
 
-from shmanager import SharedArray
+from shared_memory_array import SharedMemoryArray
 
 
 def sum_row(xsi):
@@ -17,7 +17,7 @@ def sum_row(xsi):
 def doshared(show_progress_bar=True):
     n = 1000
     with SharedMemoryManager() as manager:
-        xs = SharedArray.allocate(manager, shape=[n, n], dtype=int)
+        xs = SharedMemoryArray.allocate(manager, shape=[n, n], dtype=int)
         x = xs.as_array()
         x.fill(1)
         with Pool() as pool:

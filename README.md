@@ -36,7 +36,8 @@ pip install -e .
 import numpy as np
 from multiprocessing import Pool
 from multiprocessing.managers import SharedMemoryManager
-from shmanager import SharedArray
+from shared_memory_array import SharedMemoryArray
+
 
 def sum_row(args):
     """Sum a single row - runs in parallel process."""
@@ -44,17 +45,18 @@ def sum_row(args):
     arr = shared_array.as_array()
     return arr[row_idx].sum()
 
+
 # Create large array
 data = np.random.rand(1000, 1000)
 
 # Share it across processes
 with SharedMemoryManager() as manager:
-    shared = SharedArray.copy(manager, data)
-    
+    shared = SharedMemoryArray.copy(manager, data)
+
     with Pool() as pool:
         # Each worker accesses the SAME memory - no copying!
         results = pool.map(sum_row, [(shared, i) for i in range(1000)])
-    
+
     print(f"Total sum: {sum(results)}")
 ```
 
@@ -186,9 +188,10 @@ sa_unsafe = SharedArray.allocate_unsafe(manager, shape=(100,), dtype='float64')
 import time
 import numpy as np
 from multiprocessing import Pool
-from shmanager import SharedArray
+from shared_memory_array import SharedMemoryArray
 
 data = np.random.rand(10000, 10000)  # ~800MB array
+
 
 # Traditional approach: pickle copies data to each worker
 def traditional():
@@ -196,10 +199,11 @@ def traditional():
         results = pool.map(process_chunk, [(data, i) for i in range(100)])
     # Total memory: 800MB × num_workers 😱
 
+
 # With shmanager: zero copying
 def with_shmanager():
     with SharedMemoryManager() as manager:
-        shared = SharedArray.copy(manager, data)
+        shared = SharedMemoryArray.copy(manager, data)
         with Pool() as pool:
             results = pool.map(process_chunk_shared, [(shared, i) for i in range(100)])
     # Total memory: 800MB regardless of workers 🎉
@@ -212,8 +216,9 @@ def with_shmanager():
 import numpy as np
 from multiprocessing import Pool
 from multiprocessing.managers import SharedMemoryManager
-from shmanager import SharedArray
+from shared_memory_array import SharedMemoryArray
 from tqdm import tqdm
+
 
 def process_tile(args):
     """Process one tile of a large image."""
@@ -223,24 +228,26 @@ def process_tile(args):
     # Apply expensive operation
     return tile.mean(), tile.std()
 
+
 def parallel_image_analysis(image, n_tiles=10):
     """Analyze large image in parallel without copying."""
     tile_height = image.shape[0] // n_tiles
-    
+
     with SharedMemoryManager() as manager:
         # Share image once
-        shared = SharedArray.copy(manager, image)
-        
+        shared = SharedMemoryArray.copy(manager, image)
+
         # Create tile boundaries
-        tiles = [(shared, i*tile_height, (i+1)*tile_height) 
+        tiles = [(shared, i * tile_height, (i + 1) * tile_height)
                  for i in range(n_tiles)]
-        
+
         # Process in parallel
         with Pool() as pool:
-            results = list(tqdm(pool.imap(process_tile, tiles), 
-                              total=n_tiles))
-        
+            results = list(tqdm(pool.imap(process_tile, tiles),
+                                total=n_tiles))
+
         return results
+
 
 # Usage
 large_image = np.random.rand(10000, 10000)
