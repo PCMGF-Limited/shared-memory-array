@@ -43,7 +43,6 @@ extensions = [
     'sphinx.ext.doctest',
     'sphinx.ext.linkcode',
     'sphinx.ext.autosummary',
-    'matplotlib.sphinxext.plot_directive',
 ]
 
 templates_path = ['_templates']
