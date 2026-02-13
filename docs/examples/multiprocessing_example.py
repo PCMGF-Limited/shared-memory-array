@@ -1,8 +1,9 @@
 from multiprocessing.managers import SharedMemoryManager
 from multiprocessing import Pool
+import time
 from tqdm import tqdm
 
-from shmanager.shmanager_numpy import SharedArray
+from shmanager import SharedArray
 
 
 def sum_row(xsi):

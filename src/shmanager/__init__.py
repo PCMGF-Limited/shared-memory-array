@@ -1,1 +1,1 @@
-from .shmanager_numpy import SharedArray
+from .shmanager_numpy import SharedArray, ManagedSharedArray
