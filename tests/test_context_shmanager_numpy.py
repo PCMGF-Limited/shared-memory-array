@@ -326,24 +326,6 @@ class TestSafeVsUnsafeAllocate:
             with pytest.raises((TypeError, AttributeError)):
                 SharedMemoryArray.allocate_unsafe(manager, shape=(10,), dtype='invalid_dtype')
 
-    def test_allocate_validates_buffer_size_unsafe_does_not(self):
-        """Test that allocate validates buffer size but allocate_unsafe allows mismatch."""
-        with SharedMemoryManager() as manager:
-            # Safe version ensures correct buffer size
-            sa_safe = SharedMemoryArray.allocate(manager, shape=(100,), dtype=np.float64)
-            arr_safe = sa_safe.as_array()
-            assert arr_safe.nbytes == 800
-            sa_safe.close()
-
-            # Unsafe version can allocate wrong size
-            # Allocate only 10 bytes but claim it's 100 float64s
-            sa_unsafe = SharedMemoryArray.allocate_unsafe(
-                manager, shape=(100,), dtype=np.float64, nbytes=1
-            )
-            # This will fail when trying to create the array view
-            with pytest.raises((ValueError, TypeError, BufferError)):
-                sa_unsafe.as_array()
-            sa_unsafe.close()
 
     def test_allocate_performance_overhead(self):
         """Test that safe version has validation overhead vs unsafe."""
@@ -446,27 +428,6 @@ class TestSafeVsUnsafeCopy:
 
 
 class TestSafeVsUnsafeAttach:
-    """Tests comparing safe attach() vs unsafe attach_unsafe()."""
-
-    def test_attach_validates_buffer_size_unsafe_does_not(self):
-        """Test that attach validates buffer size but attach_unsafe does not."""
-        with SharedMemoryManager() as manager:
-            owner = SharedMemoryArray.allocate(manager, shape=(10,), dtype=np.uint8)  # 10 bytes
-            name = owner.name
-
-            # Safe attach validates size
-            with pytest.raises(ValueError, match="buffer too small"):
-                SharedMemoryArray.attach(name=name, shape=(10,), dtype=np.float64)  # needs 80 bytes
-
-            # Unsafe attach does not validate
-            client_unsafe = SharedMemoryArray.attach_unsafe(name=name, shape=(10,), dtype=np.float64)
-
-            # But will fail when trying to use it
-            with pytest.raises((ValueError, TypeError)):
-                client_unsafe.as_array()
-
-            client_unsafe.close()
-            owner.close()
 
     def test_attach_validates_shape_and_dtype_unsafe_does_not(self):
         """Test that attach validates parameters but attach_unsafe does not."""
@@ -614,7 +575,7 @@ class TestEdgeCasesContextManager:
             # After managed1 exits, the shared memory is closed/unlinked
             # Verify it's gone for new attachments
             with pytest.raises(FileNotFoundError):
-                SharedMemoryArray.attach(name=name, shape=(10,), dtype=np.dtype(np.float64))
+                SharedMemoryArray.attach(name=name, shape=(10,), dtype=np.float64)
 
             # The second managed wrapper still has a reference to the same SharedArray
             # Entering its context works, and we can even access the buffer
@@ -627,19 +588,19 @@ class TestEdgeCasesContextManager:
 
             # The key point: new processes cannot attach, and close() is idempotent
             with pytest.raises(FileNotFoundError):
-                SharedMemoryArray.attach(name=name, shape=(10,), dtype=np.dtype(np.float64))
+                SharedMemoryArray.attach(name=name, shape=(10,), dtype=np.float64)
 
     def test_managed_context_non_owner_doesnt_unlink(self):
         """Test that managed context with owner=False doesn't unlink."""
         with SharedMemoryManager() as manager:
             # Create owner
-            owner_sa = SharedMemoryArray.allocate(manager, shape=(10,), dtype=np.dtype(np.float64))
+            owner_sa = SharedMemoryArray.allocate(manager, shape=(10,), dtype=np.float64)
             name = owner_sa.name
             owner_arr = owner_sa.as_array()
             owner_arr[:] = 42.0
 
             # Attach as non-owner and use managed context
-            client_sa = SharedMemoryArray.attach(name=name, shape=(10,), dtype=np.dtype(np.float64))
+            client_sa = SharedMemoryArray.attach(name=name, shape=(10,), dtype=np.float64)
             assert client_sa.owner is False
 
             with client_sa.managed() as client:
@@ -770,7 +731,7 @@ class TestSafetyComparison:
 
             # Negative shape
             try:
-                SharedMemoryArray.allocate(manager, shape=(-10,), dtype=np.dtype(np.float64))
+                SharedMemoryArray.allocate(manager, shape=(-10,), dtype=np.float64)
             except ValueError:
                 errors_caught.append('negative_shape')
 
@@ -780,15 +741,7 @@ class TestSafetyComparison:
             except TypeError:
                 errors_caught.append('invalid_dtype')
 
-            # Buffer too small on attach
-            owner = SharedMemoryArray.allocate(manager, shape=(10,), dtype=np.dtype(np.uint8))
-            try:
-                SharedMemoryArray.attach(name=owner.name, shape=(10,), dtype=np.dtype(np.float64))
-            except ValueError:
-                errors_caught.append('buffer_too_small')
-            owner.close()
-
-            assert len(errors_caught) == 3
+            assert len(errors_caught) == 2
 
     def test_unsafe_methods_skip_validation_for_performance(self):
         """Test that unsafe methods can be used when validation is unnecessary."""

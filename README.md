@@ -1,4 +1,4 @@
-# shmanager
+# Shared Memory Array
 
 A lightweight Python library for efficiently sharing NumPy arrays across multiple processes using shared memory, eliminating expensive data copying in parallel workloads.
 
@@ -16,14 +16,14 @@ When processing large NumPy arrays in parallel, you typically face these trade-o
 ## Installation
 
 ```bash
-pip install shmanager
+pip install shared-memory-array
 ```
 
 Or install from source:
 
 ```bash
-git clone https://github.com/PCMGF-Limited/sharedmemarray.git
-cd shmanager
+git clone https://github.com/PCMGF-Limited/shared-memory-array.git
+cd shared-memory-array
 pip install -e .
 ```
 
